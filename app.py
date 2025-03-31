@@ -1,0 +1,286 @@
+import asyncio
+import nodriver as uc
+from nodriver.cdp import fetch
+import orjson  # Librería alternativa para manejo de JSON
+import json
+import re
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import Response
+from pydantic import BaseModel
+from typing import Optional
+import urllib.request
+import os
+
+
+# Crear la aplicación FastAPI
+app = FastAPI()
+
+# Configuración del proxy
+PROXYHOST = "es.smartproxy.com"
+PROXYPORT = "10001"
+PROXYUSERNAME = "splpra54u6"
+PROXYPASSWORD = "av08Dk6=c5zSlgFaLc"
+PROXY = f"https://{PROXYHOST}:{PROXYPORT}"
+
+
+async def setup_proxy(username, password, tab):
+    async def auth_challenge_handler(event: fetch.AuthRequired):
+        await tab.send(
+            fetch.continue_with_auth(
+                request_id=event.request_id,
+                auth_challenge_response=fetch.AuthChallengeResponse(
+                    response="ProvideCredentials",
+                    username=username,
+                    password=password,
+                ),
+            )
+        )
+
+    async def req_paused(event: fetch.RequestPaused):
+        await tab.send(fetch.continue_request(request_id=event.request_id))
+
+    tab.add_handler(
+        fetch.RequestPaused, lambda event: asyncio.create_task(req_paused(event))
+    )
+    tab.add_handler(
+        fetch.AuthRequired,
+        lambda event: asyncio.create_task(auth_challenge_handler(event)),
+    )
+
+    await tab.send(fetch.enable(handle_auth_requests=True))
+
+
+# Modelo para los parámetros de búsqueda
+class SearchParams(BaseModel):
+    searchTerms: str
+    category: str
+    latitude: Optional[str] = None
+    longitude: Optional[str] = None
+    minPrice: Optional[int] = None
+    maxPrice: Optional[int] = None
+    shippingAviable: Optional[bool] = False
+    isMultipage: Optional[bool] = False
+    pagesorpage: Optional[int] = 1
+    isProgrammed: Optional[bool] = False
+    useProxy: Optional[bool] = False  #  <------------------------------------------------------------------------------ Parámetro para decidir si usar proxy
+
+
+def clean_and_fix_json(json_string: str) -> str:
+    """
+    Limpia y corrige posibles errores comunes en el JSON
+    """
+    try:
+        # Limpiar escapes básicos
+        cleaned = json_string.replace('\\\\', '\\')
+        cleaned = cleaned.replace('\\\"', '"')
+        cleaned = cleaned.replace('\\n', ' ')
+        cleaned = cleaned.replace('\\r', ' ')
+        cleaned = cleaned.replace('\\t', ' ')
+
+        # Escapar strings internos
+        def escape_internal_quotes(match):
+            content = match.group(1)
+            escaped = content.replace('"', '\\"')
+            return f'"{escaped}"'
+
+        cleaned = re.sub(r'"([^"]*?)"', escape_internal_quotes, cleaned)
+
+        # Convertir caracteres Unicode
+        cleaned = re.sub(r'\\u([0-9A-Fa-f]{4})',
+                        lambda m: chr(int(m.group(1), 16)),
+                        cleaned)
+
+        # Manejar símbolos específicos
+        cleaned = cleaned.replace('€', '€').replace('\\u20AC', '€').replace('�', '')
+
+        return cleaned
+    except Exception as e:
+        print(f"Error limpiando JSON: {str(e)}")
+        return json_string
+
+
+async def fetch_ads(params: SearchParams):
+    browser = None
+    try:
+        # Si el parámetro useProxy es True, se configura el proxy
+        if params.useProxy:
+            browser = await uc.start(browser_args=[f"--proxy-server={PROXY}"])
+        else:
+            browser = await uc.start()  # Iniciar el navegador sin proxy
+        
+        main_tab = await browser.get("about:blank")
+        if params.useProxy:
+            await setup_proxy(PROXYUSERNAME, PROXYPASSWORD, main_tab)
+        
+        # Verificar la conexión del proxy
+        ipPage = await browser.get("https://www.myexternalip.com/raw")
+        await asyncio.sleep(2)
+        ip = await ipPage.evaluate("document.body.textContent.trim()")
+        print(f">= Using IP Address: {ip}")
+
+        # Construir la URL base según la categoría
+        base_url = "https://www.milanuncios.com"
+        
+        # Construir la URL completa
+        url = f"{base_url}/{params.category}/?s={params.searchTerms}"
+        
+        # Añadir parámetros adicionales si están presentes
+        if params.minPrice is not None:
+            url += f"&precio_min={params.minPrice}"
+        if params.maxPrice is not None:
+            url += f"&precio_max={params.maxPrice}"
+        if params.latitude:
+            url += f"&latitude={params.latitude}"
+        if params.longitude:
+            url += f"&longitude={params.longitude}"
+        if params.shippingAviable:
+            url += f"&shipping=1"
+        
+        # Inicializar el navegador
+        page = await browser.get(url)
+
+        all_ads = []
+
+        # Si pagesorpage es mayor a 1, recorrer las páginas
+        if params.pagesorpage > 1:
+            for page_num in range(1, params.pagesorpage + 1):
+                # Actualizar la URL para incluir la página
+                page_url = f"{url}&pagina={page_num}"
+
+                # Navegar a la página usando la instancia del navegador existente
+                await page.goto(page_url)
+
+                # Buscar el script con el JSON de los anuncios
+                await page.find('window.__INITIAL_PROPS__ = JSON.parse', timeout=20)
+                await page.scroll_down(150)
+                
+                # Ejecutar el script para obtener el JSON
+                script = """
+                (() => {
+                    const scripts = document.querySelectorAll('script');
+                    let initialProps = null;
+
+                    scripts.forEach(script => {
+                        if (script.textContent.includes('window.__INITIAL_PROPS__')) {
+                            try {
+                                // Extraer el JSON string entre JSON.parse("..." )
+                                const match = script.textContent.match(/window\.__INITIAL_PROPS__ = JSON\.parse\("(.+?)"\);/);
+                                if (match && match[1]) {
+                                    initialProps = match[1];
+                                }
+                            } catch (e) {
+                                console.error('Error parsing script:', e);
+                            }
+                        }
+                    });
+
+                    return initialProps;
+                })();
+                """
+                initial_props_script = await page.evaluate(script)
+
+                if initial_props_script:
+                    cleaned_json = clean_and_fix_json(initial_props_script)
+                    try:
+                        data = json.loads(cleaned_json)
+                        ads = data.get("adListPagination", {}).get("relatedAdList", {}).get("ads", [])
+                        if not ads:
+                            ads = data.get("adListPagination", {}).get("adList", {}).get("ads", [])
+
+                        # Añadir los anuncios obtenidos a la lista general
+                        all_ads.extend(ads)
+
+                        # Esperar 1 segundo entre cada página
+                        await asyncio.sleep(1)
+
+                    except Exception as e:
+                        raise HTTPException(status_code=500, detail="Error procesando los anuncios en página {page_num}")
+
+        else:
+            # Buscar el script con el JSON de los anuncios
+            await page.find('window.__INITIAL_PROPS__ = JSON.parse', timeout=20)
+            await page.scroll_down(150)
+
+            # Ejecutar el script para obtener el JSON
+            script = """
+            (() => {
+                const scripts = document.querySelectorAll('script');
+                let initialProps = null;
+
+                scripts.forEach(script => {
+                    if (script.textContent.includes('window.__INITIAL_PROPS__')) {
+                        try {
+                            // Extraer el JSON string entre JSON.parse("..." )
+                            const match = script.textContent.match(/window\.__INITIAL_PROPS__ = JSON\.parse\("(.+?)"\);/);
+                            if (match && match[1]) {
+                                initialProps = match[1];
+                            }
+                        } catch (e) {
+                            console.error('Error parsing script:', e);
+                        }
+                    }
+                });
+
+                return initialProps;
+            })();
+            """
+            initial_props_script = await page.evaluate(script)
+
+            if initial_props_script:
+                cleaned_json = clean_and_fix_json(initial_props_script)
+                try:
+                    data = json.loads(cleaned_json)
+                    ads = data.get("adListPagination", {}).get("relatedAdList", {}).get("ads", [])
+                    if not ads:
+                        ads = data.get("adListPagination", {}).get("adList", {}).get("ads", [])
+
+                    # Añadir los anuncios obtenidos a la lista general
+                    all_ads.extend(ads)
+
+                except Exception as e:
+                    raise HTTPException(status_code=500, detail="Error procesando los anuncios")
+
+        # Sanitizar los anuncios antes de devolverlos
+        def sanitize_text(text):
+            if isinstance(text, str):
+                # Reemplazar caracteres problemáticos
+                return text.encode('ascii', 'ignore').decode('ascii')
+            return text
+
+        def sanitize_dict(d):
+            if isinstance(d, dict):
+                return {k: sanitize_dict(v) for k, v in d.items()}
+            elif isinstance(d, list):
+                return [sanitize_dict(x) for x in d]
+            elif isinstance(d, str):
+                return sanitize_text(d)
+            return d
+
+        # Sanitizar los anuncios
+        sanitized_ads = sanitize_dict(all_ads)
+
+        # Convertir los anuncios a JSON para la respuesta
+        json_response = json.dumps(sanitized_ads)
+
+        return Response(
+            content=json_response,
+            media_type="application/json"
+        )
+
+    except Exception as e:
+        print(f"Error en la búsqueda: {str(e)}")
+        # Cerrar el navegador si fue iniciado
+        if browser:
+            await browser.close()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/ads")
+async def get_ads(params: SearchParams):
+    return await fetch_ads(params)
+
+
+if __name__ == "__main__":
+    import uvicorn
+    
+    uvicorn.run(app, host="127.0.0.1", port=7000)

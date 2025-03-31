@@ -1,0 +1,4 @@
+__pycache__/
+myenv/
+.vs/
+output_raw.txt
