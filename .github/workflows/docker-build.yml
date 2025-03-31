@@ -1,0 +1,39 @@
+
+name: Docker Build and Push
+
+on:
+  push:
+    branches:
+      - main  # Si tu rama principal es 'master', cámbialo por 'master'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Comprobar el repositorio
+        uses: actions/checkout@v2
+
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Cachear capas de Docker
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/docker
+          key: ${{ runner.os }}-build-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-build-
+
+      - name: Iniciar sesión en Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Construir y subir la imagen de Docker
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/milanunciosscrapperpy:latest  # Cambia 'nombre-del-repo' por el nombre de tu repositorio en Docker Hub
