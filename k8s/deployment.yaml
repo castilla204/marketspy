@@ -1,0 +1,56 @@
+# k8s/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: milanuncios-scrapper-py
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: milanuncios-scrapper-py
+  template:
+    metadata:
+      labels:
+        app: milanuncios-scrapper-py
+    spec:
+      containers:
+      - name: milanuncios-scrapper-py
+        image: erizo9/milanunciosscrapperpy:latest
+        ports:
+        - containerPort: 7000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: milanuncios-scrapper-py-svc
+  namespace: default
+spec:
+  ports:
+  - port: 7000
+    targetPort: 7000
+  selector:
+    app: milanuncios-scrapper-py
+  type: NodePort
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: milanuncios-scrapper-py-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: milanuncios-scrapper-py
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
