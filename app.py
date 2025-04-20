@@ -99,13 +99,21 @@ async def fetch_ads(params: SearchParams):
         
         print(f"Iniciando navegador con configuración: {browser_config}")
         
+        # Verificar si el binario de Chrome existe
+        if not os.path.exists(browser_config["browser_executable_path"]):
+            raise HTTPException(status_code=500, detail="El binario de Chrome no se encuentra en /usr/bin/google-chrome")
+        
         # Si el parámetro useProxy es True, se configura el proxy
         if params.useProxy:
             browser_config["proxy_server"] = f"https://{PROXYHOST}:{PROXYPORT}"
             print("Configurando proxy...")
             browser = await uc.start(**browser_config)
         else:
+            print("Iniciando navegador sin proxy...")
             browser = await uc.start(**browser_config)
+        
+        if browser is None:
+            raise HTTPException(status_code=500, detail="No se pudo inicializar el navegador: uc.start() devolvió None")
         
         print("Navegador iniciado correctamente")
         
@@ -252,4 +260,4 @@ async def get_ads(params: SearchParams):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.1.1", port=7000)
+    uvicorn.run(app, host="127.0.0.1", port=7000)
