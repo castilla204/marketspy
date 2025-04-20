@@ -1,4 +1,3 @@
-# k8s/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -19,6 +18,13 @@ spec:
         image: erizo9/milanunciosscrapperpy:latest
         ports:
         - containerPort: 7000
+        resources:
+          requests:
+            memory: "1.5Gi"
+            cpu: "1500m"
+          limits:
+            memory: "3Gi"
+            cpu: "3000m"
 
 ---
 apiVersion: v1
