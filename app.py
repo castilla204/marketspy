@@ -1,7 +1,7 @@
 import asyncio
 import nodriver as uc
 from nodriver.cdp import fetch
-import orjson  # Librería alternativa para manejo de JSON
+import orjson
 import json
 import re
 from fastapi import FastAPI, HTTPException
@@ -10,7 +10,6 @@ from pydantic import BaseModel
 from typing import Optional
 import urllib.request
 import os
-
 
 # Crear la aplicación FastAPI
 app = FastAPI()
@@ -21,7 +20,6 @@ PROXYPORT = "10001"
 PROXYUSERNAME = "splpra54u6"
 PROXYPASSWORD = "av08Dk6=c5zSlgFaLc"
 PROXY = f"https://{PROXYHOST}:{PROXYPORT}"
-
 
 async def setup_proxy(username, password, tab):
     async def auth_challenge_handler(event: fetch.AuthRequired):
@@ -49,7 +47,6 @@ async def setup_proxy(username, password, tab):
 
     await tab.send(fetch.enable(handle_auth_requests=True))
 
-
 # Modelo para los parámetros de búsqueda
 class SearchParams(BaseModel):
     searchTerms: str
@@ -62,51 +59,55 @@ class SearchParams(BaseModel):
     isMultipage: Optional[bool] = False
     pagesorpage: Optional[int] = 1
     isProgrammed: Optional[bool] = False
-    useProxy: Optional[bool] = False  #  <------------------------------------------------------------------------------ Parámetro para decidir si usar proxy
-
+    useProxy: Optional[bool] = False
 
 def clean_and_fix_json(json_string: str) -> str:
-    """
-    Limpia y corrige posibles errores comunes en el JSON
-    """
     try:
-        # Limpiar escapes básicos
         cleaned = json_string.replace('\\\\', '\\')
         cleaned = cleaned.replace('\\\"', '"')
         cleaned = cleaned.replace('\\n', ' ')
         cleaned = cleaned.replace('\\r', ' ')
         cleaned = cleaned.replace('\\t', ' ')
-
-        # Escapar strings internos
         def escape_internal_quotes(match):
             content = match.group(1)
             escaped = content.replace('"', '\\"')
             return f'"{escaped}"'
-
         cleaned = re.sub(r'"([^"]*?)"', escape_internal_quotes, cleaned)
-
-        # Convertir caracteres Unicode
         cleaned = re.sub(r'\\u([0-9A-Fa-f]{4})',
                         lambda m: chr(int(m.group(1), 16)),
                         cleaned)
-
-        # Manejar símbolos específicos
         cleaned = cleaned.replace('€', '€').replace('\\u20AC', '€').replace('�', '')
-
         return cleaned
     except Exception as e:
         print(f"Error limpiando JSON: {str(e)}")
         return json_string
 
-
 async def fetch_ads(params: SearchParams):
     browser = None
     try:
+        # Configurar nodriver con opciones adicionales
+        browser_config = {
+            "browser_executable_path": "/usr/bin/google-chrome",
+            "headless": True,
+            "no_sandbox": True,
+            "disable_dev_shm_usage": True,
+            "disable_gpu": True,
+            "disable_extensions": True,
+            "disable_software_rasterizer": True,
+            "disable_setuid_sandbox": True
+        }
+        
+        print(f"Iniciando navegador con configuración: {browser_config}")
+        
         # Si el parámetro useProxy es True, se configura el proxy
         if params.useProxy:
-            browser = await uc.start(browser_args=[f"--proxy-server={PROXY}"])
+            browser_config["proxy_server"] = f"https://{PROXYHOST}:{PROXYPORT}"
+            print("Configurando proxy...")
+            browser = await uc.start(**browser_config)
         else:
-            browser = await uc.start()  # Iniciar el navegador sin proxy
+            browser = await uc.start(**browser_config)
+        
+        print("Navegador iniciado correctamente")
         
         main_tab = await browser.get("about:blank")
         if params.useProxy:
@@ -120,11 +121,7 @@ async def fetch_ads(params: SearchParams):
 
         # Construir la URL base según la categoría
         base_url = "https://www.milanuncios.com"
-        
-        # Construir la URL completa
         url = f"{base_url}/{params.category}/?s={params.searchTerms}"
-        
-        # Añadir parámetros adicionales si están presentes
         if params.minPrice is not None:
             url += f"&precio_min={params.minPrice}"
         if params.maxPrice is not None:
@@ -136,34 +133,25 @@ async def fetch_ads(params: SearchParams):
         if params.shippingAviable:
             url += f"&shipping=1"
         
-        # Inicializar el navegador
+        print(f"Navegando a URL: {url}")
         page = await browser.get(url)
-
         all_ads = []
 
-        # Si pagesorpage es mayor a 1, recorrer las páginas
         if params.pagesorpage > 1:
             for page_num in range(1, params.pagesorpage + 1):
-                # Actualizar la URL para incluir la página
                 page_url = f"{url}&pagina={page_num}"
-
-                # Navegar a la página usando la instancia del navegador existente
+                print(f"Navegando a página {page_num}: {page_url}")
                 await page.goto(page_url)
-
-                # Buscar el script con el JSON de los anuncios
                 await page.find('window.__INITIAL_PROPS__ = JSON.parse', timeout=20)
                 await page.scroll_down(150)
                 
-                # Ejecutar el script para obtener el JSON
                 script = """
                 (() => {
                     const scripts = document.querySelectorAll('script');
                     let initialProps = null;
-
                     scripts.forEach(script => {
                         if (script.textContent.includes('window.__INITIAL_PROPS__')) {
                             try {
-                                // Extraer el JSON string entre JSON.parse("..." )
                                 const match = script.textContent.match(/window\.__INITIAL_PROPS__ = JSON\.parse\("(.+?)"\);/);
                                 if (match && match[1]) {
                                     initialProps = match[1];
@@ -173,7 +161,6 @@ async def fetch_ads(params: SearchParams):
                             }
                         }
                     });
-
                     return initialProps;
                 })();
                 """
@@ -186,31 +173,24 @@ async def fetch_ads(params: SearchParams):
                         ads = data.get("adListPagination", {}).get("relatedAdList", {}).get("ads", [])
                         if not ads:
                             ads = data.get("adListPagination", {}).get("adList", {}).get("ads", [])
-
-                        # Añadir los anuncios obtenidos a la lista general
                         all_ads.extend(ads)
-
-                        # Esperar 1 segundo entre cada página
+                        print(f"Anuncios obtenidos de página {page_num}: {len(ads)}")
                         await asyncio.sleep(1)
-
                     except Exception as e:
-                        raise HTTPException(status_code=500, detail="Error procesando los anuncios en página {page_num}")
+                        print(f"Error procesando los anuncios en página {page_num}: {str(e)}")
+                        raise HTTPException(status_code=500, detail=f"Error procesando los anuncios en página {page_num}: {str(e)}")
 
         else:
-            # Buscar el script con el JSON de los anuncios
+            print("Buscando script de anuncios...")
             await page.find('window.__INITIAL_PROPS__ = JSON.parse', timeout=20)
             await page.scroll_down(150)
-
-            # Ejecutar el script para obtener el JSON
             script = """
             (() => {
                 const scripts = document.querySelectorAll('script');
                 let initialProps = null;
-
                 scripts.forEach(script => {
                     if (script.textContent.includes('window.__INITIAL_PROPS__')) {
                         try {
-                            // Extraer el JSON string entre JSON.parse("..." )
                             const match = script.textContent.match(/window\.__INITIAL_PROPS__ = JSON\.parse\("(.+?)"\);/);
                             if (match && match[1]) {
                                 initialProps = match[1];
@@ -218,12 +198,10 @@ async def fetch_ads(params: SearchParams):
                         } catch (e) {
                             console.error('Error parsing script:', e);
                         }
-                    }
-                });
-
-                return initialProps;
-            })();
-            """
+                    });
+                    return initialProps;
+                })();
+                """
             initial_props_script = await page.evaluate(script)
 
             if initial_props_script:
@@ -233,17 +211,14 @@ async def fetch_ads(params: SearchParams):
                     ads = data.get("adListPagination", {}).get("relatedAdList", {}).get("ads", [])
                     if not ads:
                         ads = data.get("adListPagination", {}).get("adList", {}).get("ads", [])
-
-                    # Añadir los anuncios obtenidos a la lista general
                     all_ads.extend(ads)
-
+                    print(f"Anuncios obtenidos: {len(ads)}")
                 except Exception as e:
-                    raise HTTPException(status_code=500, detail="Error procesando los anuncios")
+                    print(f"Error procesando los anuncios: {str(e)}")
+                    raise HTTPException(status_code=500, detail=f"Error procesando los anuncios: {str(e)}")
 
-        # Sanitizar los anuncios antes de devolverlos
         def sanitize_text(text):
             if isinstance(text, str):
-                # Reemplazar caracteres problemáticos
                 return text.encode('ascii', 'ignore').decode('ascii')
             return text
 
@@ -256,11 +231,9 @@ async def fetch_ads(params: SearchParams):
                 return sanitize_text(d)
             return d
 
-        # Sanitizar los anuncios
         sanitized_ads = sanitize_dict(all_ads)
-
-        # Convertir los anuncios a JSON para la respuesta
         json_response = json.dumps(sanitized_ads)
+        print(f"Respuesta enviada con {len(all_ads)} anuncios")
 
         return Response(
             content=json_response,
@@ -269,18 +242,14 @@ async def fetch_ads(params: SearchParams):
 
     except Exception as e:
         print(f"Error en la búsqueda: {str(e)}")
-        # Cerrar el navegador si fue iniciado
         if browser:
             await browser.close()
-        raise HTTPException(status_code=500, detail=str(e))
-
+        raise HTTPException(status_code=500, detail=f"Error en la búsqueda: {str(e)}")
 
 @app.post("/ads")
 async def get_ads(params: SearchParams):
     return await fetch_ads(params)
 
-
 if __name__ == "__main__":
     import uvicorn
-    
-    uvicorn.run(app, host="127.0.0.1", port=7000)
+    uvicorn.run(app, host="127.0.1.1", port=7000)
