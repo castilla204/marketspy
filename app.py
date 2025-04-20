@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from typing import Optional
 import urllib.request
 import os
+import traceback
 
 # Crear la aplicación FastAPI
 app = FastAPI()
@@ -87,21 +88,27 @@ async def fetch_ads(params: SearchParams):
     try:
         # Configurar nodriver con opciones adicionales
         browser_config = {
-            "browser_executable_path": "/usr/bin/google-chrome",
+            "browser_executable_path": "/usr/bin/chromium",
             "headless": True,
             "no_sandbox": True,
             "disable_dev_shm_usage": True,
             "disable_gpu": True,
             "disable_extensions": True,
             "disable_software_rasterizer": True,
-            "disable_setuid_sandbox": True
+            "disable_setuid_sandbox": True,
+            "remote_debugging_port": 9222
         }
         
         print(f"Iniciando navegador con configuración: {browser_config}")
         
-        # Verificar si el binario de Chrome existe
+        # Verificar si el binario de Chromium existe
         if not os.path.exists(browser_config["browser_executable_path"]):
-            raise HTTPException(status_code=500, detail="El binario de Chrome no se encuentra en /usr/bin/google-chrome")
+            raise HTTPException(status_code=500, detail="El binario de Chromium no se encuentra en /usr/bin/chromium")
+        
+        # Verificar permisos del binario
+        import stat
+        st = os.stat(browser_config["browser_executable_path"])
+        print(f"Permisos del binario de Chromium: {oct(st.st_mode & 0o777)}")
         
         # Si el parámetro useProxy es True, se configura el proxy
         if params.useProxy:
@@ -110,9 +117,15 @@ async def fetch_ads(params: SearchParams):
             browser = await uc.start(**browser_config)
         else:
             print("Iniciando navegador sin proxy...")
-            browser = await uc.start(**browser_config)
+            try:
+                browser = await uc.start(**browser_config)
+            except Exception as e:
+                print(f"Error al iniciar navegador: {str(e)}")
+                print(f"Traceback: {traceback.format_exc()}")
+                raise HTTPException(status_code=500, detail=f"Error al iniciar navegador: {str(e)}")
         
         if browser is None:
+            print("Error: uc.start() devolvió None")
             raise HTTPException(status_code=500, detail="No se pudo inicializar el navegador: uc.start() devolvió None")
         
         print("Navegador iniciado correctamente")
@@ -250,6 +263,7 @@ async def fetch_ads(params: SearchParams):
 
     except Exception as e:
         print(f"Error en la búsqueda: {str(e)}")
+        print(f"Traceback: {traceback.format_exc()}")
         if browser:
             await browser.close()
         raise HTTPException(status_code=500, detail=f"Error en la búsqueda: {str(e)}")
