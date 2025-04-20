@@ -33,6 +33,9 @@ RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key
     && apt-get install -y google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
+# Verificar la versión de Chrome instalada
+RUN google-chrome --version
+
 # Crear un usuario no root
 RUN useradd -m -s /bin/bash appuser
 USER appuser
