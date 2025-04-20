@@ -1,7 +1,7 @@
 # Usa una imagen base oficial de Python
 FROM python:3.11-slim
 
-# Instalar dependencias del sistema necesarias para Chrome
+# Instalar dependencias del sistema necesarias para Chromium
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
@@ -24,21 +24,15 @@ RUN apt-get update && apt-get install -y \
     xdg-utils \
     libu2f-udev \
     libvulkan1 \
+    xvfb \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalar Google Chrome
-RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
-    && apt-get update \
-    && apt-get install -y google-chrome-stable \
+# Instalar Chromium
+RUN apt-get update && apt-get install -y chromium \
     && rm -rf /var/lib/apt/lists/*
 
-# Verificar la versión de Chrome instalada
-RUN google-chrome --version
-
-# Crear un usuario no root
-RUN useradd -m -s /bin/bash appuser
-USER appuser
+# Verificar la versión de Chromium instalada
+RUN chromium --version
 
 # Establece el directorio de trabajo dentro del contenedor
 WORKDIR /app
@@ -46,10 +40,8 @@ WORKDIR /app
 # Copia el archivo de requisitos
 COPY requirements.txt ./
 
-# Instala las dependencias (como root para evitar problemas de permisos)
-USER root
+# Instala las dependencias
 RUN pip install --no-cache-dir -r requirements.txt
-USER appuser
 
 # Copia el script principal
 COPY app.py .
@@ -58,4 +50,4 @@ COPY app.py .
 EXPOSE 7000
 
 # Comando para ejecutar la aplicación con Uvicorn
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7000"]
+CMD ["xvfb-run", "--auto-servernum", "chromium", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage", "--headless", "--remote-debugging-port=9222", "&", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7000"]
