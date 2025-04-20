@@ -33,14 +33,20 @@ RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key
     && apt-get install -y google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
+# Crear un usuario no root
+RUN useradd -m -s /bin/bash appuser
+USER appuser
+
 # Establece el directorio de trabajo dentro del contenedor
 WORKDIR /app
 
 # Copia el archivo de requisitos
 COPY requirements.txt ./
 
-# Instala las dependencias
+# Instala las dependencias (como root para evitar problemas de permisos)
+USER root
 RUN pip install --no-cache-dir -r requirements.txt
+USER appuser
 
 # Copia el script principal
 COPY app.py .
