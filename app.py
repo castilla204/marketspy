@@ -15,14 +15,23 @@ import traceback
 # Crear la aplicación FastAPI
 app = FastAPI()
 
-# Configuración del proxy
-PROXYHOST = "es.smartproxy.com"
-PROXYPORT = "10001"
-PROXYUSERNAME = "splpra54u6"
-PROXYPASSWORD = "av08Dk6=c5zSlgFaLc"
+# Configuración del proxy - ahora usando variables de entorno para mayor seguridad
+# Las credenciales deben configurarse mediante variables de entorno en producción
+PROXYHOST = os.getenv("PROXY_HOST", "es.smartproxy.com")
+PROXYPORT = os.getenv("PROXY_PORT", "10001")
+PROXYUSERNAME = os.getenv("PROXY_USERNAME", "")
+PROXYPASSWORD = os.getenv("PROXY_PASSWORD", "")
 PROXY = f"https://{PROXYHOST}:{PROXYPORT}"
 
 async def setup_proxy(username, password, tab):
+    """
+    Configura la autenticación del proxy para el navegador.
+    
+    Args:
+        username: Usuario del proxy
+        password: Contraseña del proxy
+        tab: Pestaña del navegador donde configurar el proxy
+    """
     async def auth_challenge_handler(event: fetch.AuthRequired):
         await tab.send(
             fetch.continue_with_auth(
@@ -63,6 +72,15 @@ class SearchParams(BaseModel):
     useProxy: Optional[bool] = False
 
 def clean_and_fix_json(json_string: str) -> str:
+    """
+    Limpia y corrige una cadena JSON que puede contener caracteres de escape incorrectos.
+    
+    Args:
+        json_string: Cadena JSON a limpiar
+        
+    Returns:
+        Cadena JSON limpia y corregida
+    """
     try:
         cleaned = json_string.replace('\\\\', '\\')
         cleaned = cleaned.replace('\\\"', '"')
@@ -77,13 +95,22 @@ def clean_and_fix_json(json_string: str) -> str:
         cleaned = re.sub(r'\\u([0-9A-Fa-f]{4})',
                         lambda m: chr(int(m.group(1), 16)),
                         cleaned)
-        cleaned = cleaned.replace('€', '€').replace('\\u20AC', '€').replace('�', '')
+        cleaned = cleaned.replace('€', '€').replace('\\u20AC', '€').replace('', '')
         return cleaned
     except Exception as e:
         print(f"Error limpiando JSON: {str(e)}")
         return json_string
 
 async def fetch_ads(params: SearchParams):
+    """
+    Obtiene anuncios de MilAnuncios según los parámetros de búsqueda proporcionados.
+    
+    Args:
+        params: Parámetros de búsqueda (términos, categoría, precio, etc.)
+        
+    Returns:
+        Response con los anuncios en formato JSON
+    """
     browser = None
     try:
         # Configurar nodriver con opciones adicionales
@@ -112,6 +139,11 @@ async def fetch_ads(params: SearchParams):
         
         # Si el parámetro useProxy es True, se configura el proxy
         if params.useProxy:
+            if not PROXYUSERNAME or not PROXYPASSWORD:
+                raise HTTPException(
+                    status_code=500, 
+                    detail="Las credenciales del proxy no están configuradas. Configure PROXY_USERNAME y PROXY_PASSWORD como variables de entorno."
+                )
             browser_config["proxy_server"] = f"https://{PROXYHOST}:{PROXYPORT}"
             print("Configurando proxy...")
             browser = await uc.start(**browser_config)
@@ -239,11 +271,13 @@ async def fetch_ads(params: SearchParams):
                     raise HTTPException(status_code=500, detail=f"Error procesando los anuncios: {str(e)}")
 
         def sanitize_text(text):
+            """Sanitiza texto eliminando caracteres no ASCII."""
             if isinstance(text, str):
                 return text.encode('ascii', 'ignore').decode('ascii')
             return text
 
         def sanitize_dict(d):
+            """Sanitiza recursivamente un diccionario o lista."""
             if isinstance(d, dict):
                 return {k: sanitize_dict(v) for k, v in d.items()}
             elif isinstance(d, list):
@@ -270,6 +304,15 @@ async def fetch_ads(params: SearchParams):
 
 @app.post("/ads")
 async def get_ads(params: SearchParams):
+    """
+    Endpoint para obtener anuncios de MilAnuncios.
+    
+    Args:
+        params: Parámetros de búsqueda en el body de la petición
+        
+    Returns:
+        Lista de anuncios en formato JSON
+    """
     return await fetch_ads(params)
 
 if __name__ == "__main__":
