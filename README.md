@@ -1,1 +1,58 @@
-IyBNYXJrZXRTcHkgLS0tIEluZ2VuaWVyw61hIEludmVyc2EgZGUgQVBJIE9jdWx0YQoKPiBQcmltZXIgc2NyYXBlciBkb2N1bWVudGFkbyBww7pibGljYW1lbnRlIHBhcmEgTWlsQW51bmNpb3MuIFNpbiBoYWNrZXJzLCBzaW4gQVBJIHDDumJsaWNhOiBpbmdlbmllcsOtYSBpbnZlcnNhIHB1cmEuCgohW1B5dGhvbl0oaHR0cHM6Ly9pbWcuc2hpZWxkcy5pby9iYWRnZS9weXRob24tMy4xMCstMzc3NkFCP3N0eWxlPWZsYXQtc3F1YXJlJmxvZ289cHl0aG9uJmxvZ29Db2xvcj13aGl0ZSkKIVtGYXN0QVBJXSIKISFEQVBJXSJ0cnVlIlxuKQoKLS0tCgojIyDCv1F1w6kgZXMgTWFya2V0U3B5PwoKTWlsQW51bmNpb3Mgbm8gdGllbmUgQVBJIHDDumJsaWNhLiBFc3RlIHByb3llY3RvIG5hY2nDsyBkZSBzZW1hbmFzIGRlIGFuw6FsaXNpcyBkZWwgdHLDoWZpY28gZGUgcmVkIHBhcmEgZGVzY3VicmlyIGPDs21vIGZ1bmNpb25hIGludGVybmFtZW50ZSBsYSBwbGF0YWZvcm1hOiBlbmNhYmV6YWRvcywgdG9rZW5zIGRlIHNlc2nDs24sIHBhcsOhbWV0cm9zIG9jdWx0b3MgeSBwYXRyb25lcyBkZSBwZXRpY2nDs24uCgpFbCByZXN1bHRhZG8gZXMgdW5hIEFQSSBSRVNUIGxpbXBpYSBleHB1ZXN0YSBjb24gRmFzdEFQSSwgRG9ja2VyaXphZGEgeSBvcnF1ZXN0YWRhIGNvbiBLdWJlcm5ldGVzOyBsaXN0YSBwYXJhIGVzY2FsYXIgaG9yaXpvbnRhbG1lbnRlLgoKU2lydsOzIGRlIGJhc2UgdGVjbm9sw7NnaWNhIHBhcmEgZWwgcHJveWVjdG8gW0RlYWxSYWRhcl0oaHR0cHM6Ly9naXRodWIuY29tL2Nhc3RpbGxhMjA0L0dSVVApLgoKLS0tCgojIyBTdGFjawoKfCBIZXJyYW1pZW50YSB8IFVzbyB8CnwtLS18LS0tfAp8IFB5dGhvbiB8IEluZ2VuaWVyw61hIGludmVyc2EgeSBsw7NnaWNhIGRlIHNjcmFwaW5nIHwKfCBGYXN0QVBJIHB8IEFQSSBSRVNUIHBhcmEgZXhwb25lciBsb3MgZGF0b3MgfAp8IERvY2tlciB8IENvbnRlbmVyaXphY2nDs24gfAp8IEt1YmVybmV0ZXMgfCBPcnF1ZXN0YWNpw7NuIHkgZXNjYWxhZG8gaG9yaXpvbnRhbCB8CgotLS0KCiMjIEluc3RhbGFjacOzbgoKYGBgYmFzaApnaXQgY2xvbmUgaHR0cHM6Ly9naXRodWIuY29tL2Nhc3RpbGxhMjA0L01pbEFudW5jaW9zU2NyYXBwZXJQeQpjZCBNaWxBbnVuY2lvc1NjcmFwcGVyUHkKCiMgQ29uZmlndXJhciB2YXJpYWJsZXMgZGUgZW50b3JubwpjcCAuZW52LmV4YW1wbGUgLmVudgoKIyBEb2NrZXIKZG9ja2VyIGJ1aWxkIC10IG1hcmtldHNweS1hcGkgLgpkb2NrZXIgcnVuIC1wIDgwMDA6ODAwMCBtYXJrZXRzcHktYXBpCmBgYAoKIyMgRW5kb2ludHMKCnwgTcOpdG9kbyB8IFJ1dGEgfCBEZXNjcmlwY2nDs24gfAp8LS0tfC0tLXwtLS18CnwgR0VUIHwgYC9hbnVuY2lvc2AgfCBCdXNjYSBhbnVuY2lvcyBwb3IgcGFsYWJyYSBjbGF2ZSB5IHBhcsOhbWV0cm9zIHwKfCBHRVQgfCBgL2Fub25jaW9zL3tkZXRhbGxlfWAgfCBPYnRpZW5lIGVsIGRldGFsbGUgY29tcGxldG8gZGUgdW4gYW51bmNpbyB8CgotLS0KCiMjIEF1dG9yCgoqKkRpZWdvIENhc3RpbGxhIEFiZWxsYSoqIC0gW2dpdGh1Yi5jb20vY2FzdGlsbGEyMDRdKGh0dHBzOi8vZ2l0aHViLmNvbS9jYXN0aWxsYTIwNCk=
+# MarketSpy — Ingeniería Inversa de API Oculta
+
+> Primer scraper documentado públicamente para MilAnuncios. Sin API pública: ingeniería inversa pura del protocolo interno.
+
+![Python](https://img.shields.io/badge/python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=flat-square&logo=kubernetes&logoColor=white)
+
+---
+
+## ¿Qué es MarketSpy?
+
+MilAnuncios no tiene API pública. Este proyecto nació de semanas de análisis del tráfico de red para descubrir cómo funciona internamente la plataforma: encabezados, tokens de sesión, parámetros ocultos y patrones de petición.
+
+El resultado es una API REST limpia expuesta con FastAPI, Dockerizada y orquestada con Kubernetes; lista para escalar horizontalmente.
+
+Sirvió de base tecnológica para el proyecto [DealRadar](https://github.com/castilla204/GRUP).
+
+---
+
+## Stack
+
+| Herramienta | Uso |
+|---|---|
+| Python | Ingeniería inversa y lógica de scraping |
+| FastAPI | API REST para exponer los datos |
+| Docker | Contenerización |
+| Kubernetes | Orquestación y escalado horizontal |
+
+---
+
+## Instalación
+
+```bash
+git clone https://github.com/castilla204/MilAnunciosScrapperPy
+cd MilAnunciosScrapperPy
+
+# Configurar variables de entorno
+cp .env.example .env
+
+# Docker
+docker build -t marketspy-api .
+docker run -p 8000:8000 marketspy-api
+```
+
+## Endpoints principales
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/anuncios` | Busca anuncios por palabra clave y parámetros |
+| GET | `/anuncios/{id}` | Detalle completo de un anuncio |
+
+---
+
+## Autor
+
+**Diego Castilla Abella** - [github.com/castilla204](https://github.com/castilla204)
