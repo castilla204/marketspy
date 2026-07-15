@@ -15,7 +15,7 @@ MilAnuncios no tiene API pública. Este proyecto nació de semanas de análisis 
 
 El resultado es una API REST limpia expuesta con FastAPI, Dockerizada y orquestada con Kubernetes; lista para escalar horizontalmente.
 
-Sirvió de base tecnológica para el proyecto [DealRadar](https://github.com/castilla204/GRUP).
+Sirvió de base tecnológica para el proyecto [DealRadar](https://github.com/castilla204/dealradar).
 
 ---
 
@@ -33,8 +33,8 @@ Sirvió de base tecnológica para el proyecto [DealRadar](https://github.com/cas
 ## Instalación
 
 ```bash
-git clone https://github.com/castilla204/MilAnunciosScrapperPy
-cd MilAnunciosScrapperPy
+git clone https://github.com/castilla204/marketspy.git
+cd marketspy
 
 # Configurar variables de entorno
 cp .env.example .env
