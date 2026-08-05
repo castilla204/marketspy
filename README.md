@@ -56,3 +56,5 @@ docker run -p 8000:8000 marketspy-api
 ## Autor
 
 **Diego Castilla Abella** - [github.com/castilla204](https://github.com/castilla204)
+
+<!-- meta:sync 1785961137 -->
